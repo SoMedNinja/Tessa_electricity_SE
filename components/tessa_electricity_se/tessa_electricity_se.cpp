@@ -117,21 +117,56 @@ struct Tariff {
   Formula delivery, feed_in;
   float sales_additional = 0;
   bool feed = false;
-  bool error = false;  // one of them is not a formula: the tile says so in place of a price that would be wrong
+  bool error = false;  // invalid text: show a clear prompt instead of a silently wrong price
 };
+
+// Parse a free-text tariff amount: at most two whole digits and no more decimal digits than the display precision.
+// A comma or point may be used as the decimal mark. Empty text means zero; costs may be negative, tax may not.
+static bool read_amount(JsonObjectConst options, const char *id, int decimals, bool negative, float &out) {
+  const char *text = options[id] | "0";
+  while (*text == ' ' || *text == '\t') text++;
+  if (!*text) { out = 0; return true; }
+  char value[16];
+  size_t n = 0, whole = 0, fraction = 0;
+  bool point = false, digit = false;
+  if (*text == '-' || *text == '+') {
+    if (*text == '-' && !negative) return false;
+    value[n++] = *text++;
+  }
+  for (; *text; text++) {
+    const char c = *text;
+    if (c >= '0' && c <= '9') {
+      if (point) { if (++fraction > decimals) return false; }
+      else if (++whole > 2) return false;
+      value[n++] = c;
+      digit = true;
+    } else if ((c == '.' || c == ',') && !point) {
+      point = true;
+      value[n++] = '.';
+    } else return false;
+    if (n >= sizeof(value) - 1) return false;
+  }
+  if (!digit || whole == 0 || (point && fraction == 0)) return false;
+  value[n] = 0;
+  char *end = nullptr;
+  out = std::strtof(value, &end);
+  return end != value && *end == 0 && std::isfinite(out);
+}
 
 static Tariff tariff_of(JsonObjectConst options) {
   Tariff t;
-  const float tax = options["tax"] | 0.0f;
-  const float delivery_additional = options["delivery_additional"] | 0.0f;
-  t.sales_additional = options["sales_additional"] | 0.0f;
+  const int decimals = std::clamp<int>(static_cast<int>(std::lround(options["fixed"] | 2.0f)), 0, 4);
+  float tax = 0, delivery_additional = 0;
+  const bool valid_tax = read_amount(options, "tax", decimals, false, tax);
+  const bool valid_delivery = read_amount(options, "delivery_additional", decimals, true, delivery_additional);
+  const bool valid_sales = read_amount(options, "sales_additional", decimals, true, t.sales_additional);
   char expression[64];
   snprintf(expression, sizeof(expression), "p*%.6g+%.6g", 1.0f + tax / 100.0f, delivery_additional);
   const bool delivery = t.delivery.parse(expression);
   snprintf(expression, sizeof(expression), "p+%.6g", t.sales_additional);
   const bool sales = t.feed_in.parse(expression);
   t.feed = sales && (options["show_sales"] | false);
-  t.error = !delivery || !sales;
+  t.error = !valid_tax || !valid_delivery || !valid_sales || !delivery || !sales;
   return t;
 }
 
@@ -790,7 +825,7 @@ class PriceTile : public tessera::Tile {
     tile_ = c.tile;
     entity_ = c.entity;
     cents_ = strcmp(c.options["unit"] | "eur", "cents") == 0;
-    decimals_ = std::min<int>(static_cast<int>(std::lround(c.options["fixed"] | 3.0f)), cents_ ? 1 : 4);  // 3 or 3.0
+    decimals_ = std::clamp<int>(static_cast<int>(std::lround(c.options["fixed"] | 2.0f)), 0, 4);
     tariff_ = tariff_of(c.options);
     line_ = strcmp(c.options["graph"] | "bars", "line") == 0;
     fill_ = c.options["fill"] | true;
