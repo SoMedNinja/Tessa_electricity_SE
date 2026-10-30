@@ -15,6 +15,7 @@ ElectricityPrice = tessa_electricity_se_ns.class_("ElectricityPrice", cg.Compone
 CONFIG_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(ElectricityPrice),
+        cv.Optional("nordpool_config_entry", default=""): cv.string,
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -22,5 +23,6 @@ CONFIG_SCHEMA = cv.Schema(
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
+    cg.add(var.set_nordpool_config_entry(config["nordpool_config_entry"]))
     await smart_display.register_plugin(var, __file__)
 
