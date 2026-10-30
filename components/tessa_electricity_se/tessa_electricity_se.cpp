@@ -111,8 +111,8 @@ static bool read_epex(JsonObjectConst a, float scale, Prices &p) {
   return true;
 }
 
-// Delivery applies a tax uplift and an additional charge to the selected buy sensor. Sales uses the separately selected
-// sell sensor and adds its configured per-kWh amount.
+// Delivery applies tax and an additional charge to the selected price sensor. Optional sales display applies its own
+// additional amount to that same sensor; this Tessera tile-option API does not support a second entity selector.
 struct Tariff {
   Formula delivery, feed_in;
   float sales_additional = 0;
@@ -130,7 +130,7 @@ static Tariff tariff_of(JsonObjectConst options) {
   const bool delivery = t.delivery.parse(expression);
   snprintf(expression, sizeof(expression), "p+%.6g", t.sales_additional);
   const bool sales = t.feed_in.parse(expression);
-  t.feed = sales && std::strlen(options["sales_entity"] | "") > 0;
+  t.feed = sales && (options["show_sales"] | false);
   t.error = !delivery || !sales;
   return t;
 }
@@ -185,24 +185,6 @@ static void read_prices(JsonObjectConst data, bool cents, const Tariff &tariff, 
   p.lo = n ? lo : 0;
   p.hi = n ? hi : 0;
   p.avg = n ? sum / n : 0;
-}
-
-// The sales entity may also publish its own price list. If it reports only a current price, retain the buy sensor's
-// future curve and apply the configured sales adjustment to those intervals.
-static void read_sales(JsonObjectConst data, bool cents, const Tariff &tariff, Prices &p) {
-  p.has_feed = false;
-  if (!tariff.feed || data["state"].isNull()) return;
-  Tariff identity;
-  Prices sales;
-  read_prices(data, cents, identity, sales);
-  if (!sales.state_ok) return;
-  const float shown_additional = tariff.sales_additional * (cents ? 100.0f : 1.0f);
-  p.state_feed = p.feed_current = sales.state_current + shown_additional;
-  p.has_feed = true;
-  for (int s = 0; s < p.count(); s++) {
-    const float base = s < sales.count() && !std::isnan(sales.slot[s]) ? sales.slot[s] : p.slot[s];
-    p.feed[s] = std::isnan(base) ? NAN : base + shown_additional;
-  }
 }
 
 static const Prices NO_PRICES{};
@@ -846,7 +828,6 @@ class PriceTile : public tessera::Tile {
 
   void on_state(JsonObjectConst data) override {
     read_prices(data, cents_, tariff_, prices_);
-    read_sales(data["entities"]["sales_entity"], cents_, tariff_, prices_);
     if (prices_.chosen && (bar_->tile == nullptr || bar_->tile == this)) {
       bar_->tile = this;
       bar_->set = true;
@@ -1099,7 +1080,6 @@ class PriceCard : public tessera::Card {
 
   void on_state(JsonObjectConst data) override {
     read_prices(data, cents_, tariff_, prices_);
-    read_sales(data["entities"]["sales_entity"], cents_, tariff_, prices_);
     on_tick(last_epoch_);
   }
 
