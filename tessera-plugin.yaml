@@ -2,7 +2,7 @@
 # card. Delivery tax and costs, and optional sales display and cost, are configured per tile. The price now of a tile
 # can also stand in the top bar.
 id: tessa_electricity_se
-version: 0.1.7
+version: 0.1.8
 api: "0.12"
 icon: flash
 maintainer: SoMedNinja
