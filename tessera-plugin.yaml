@@ -1,11 +1,9 @@
 # Tessa electricity SE: the price of power now as a tile, and the graph of today and tomorrow on bigger tiles and on a
-# card, with the person's own tariff on top: a formula in p for delivery and, optionally, one for feed-in. It reads the
-# sensor of Nord Pool (HACS `nordpool`), ENTSO-e (`entsoe`), GE-Spot (`ge_spot`) or EPEX Spot (`epex_spot`) from Home
-# Assistant. The price now
-# of a tile can also stand in the top bar.
+# card. Delivery tax and costs, and optional sales sensor and cost, are configured per tile. The price now of a tile
+# can also stand in the top bar.
 id: tessa_electricity_se
-version: 0.1.1
-api: "0.12"
+version: 0.1.2
+api: "0.15"
 icon: flash
 maintainer: SoMedNinja
 license: MIT
@@ -21,7 +19,7 @@ bar_items:
   - { id: price, label: bar_price, icon: flash, example: bar_example }
 
 tiles:
-# One tile per integration: has_attributes keeps the inspector's list to the sensors that belong to it.
+# One tile per integration; sensor selection is per tile and price-list parsing remains integration-specific.
   - id: nordpool
     name: tile_name_nordpool
     icon: flash
@@ -29,7 +27,6 @@ tiles:
     memory: 16000
     domains: [sensor]
     attributes: [unit_of_measurement]
-    has_attributes: [raw_today]
     fields:
       today: { path: "raw_today[*].value", as: numbers }
       tomorrow: { path: "raw_tomorrow[*].value", as: numbers }
@@ -45,8 +42,10 @@ tiles:
           - { value: eur, label: unit_eur }
           - { value: cents, label: unit_cents }
       - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
-      - { id: delivery, kind: text, default: "", label: delivery, hint: delivery_hint }
-      - { id: feed_in, kind: text, default: "", label: feed_in, hint: feed_in_hint }
+      - { id: tax, kind: number, min: 0, max: 100, step: 0.1, default: 0, unit: "%", label: tax, hint: tax_hint }
+      - { id: delivery_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: delivery_additional, hint: delivery_additional_hint }
+      - { id: sales_entity, kind: entity, domains: [sensor], attributes: [unit_of_measurement], label: sales_entity, hint: sales_entity_hint }
+      - { id: sales_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: sales_additional, hint: sales_additional_hint }
       - id: graph
         kind: choice
         default: bars
@@ -89,8 +88,10 @@ tiles:
           - { value: eur, label: unit_eur }
           - { value: cents, label: unit_cents }
       - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
-      - { id: delivery, kind: text, default: "", label: delivery, hint: delivery_hint }
-      - { id: feed_in, kind: text, default: "", label: feed_in, hint: feed_in_hint }
+      - { id: tax, kind: number, min: 0, max: 100, step: 0.1, default: 0, unit: "%", label: tax, hint: tax_hint }
+      - { id: delivery_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: delivery_additional, hint: delivery_additional_hint }
+      - { id: sales_entity, kind: entity, domains: [sensor], attributes: [unit_of_measurement], label: sales_entity, hint: sales_entity_hint }
+      - { id: sales_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: sales_additional, hint: sales_additional_hint }
       - id: graph
         kind: choice
         default: bars
@@ -133,8 +134,10 @@ tiles:
           - { value: eur, label: unit_eur }
           - { value: cents, label: unit_cents }
       - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
-      - { id: delivery, kind: text, default: "", label: delivery, hint: delivery_hint }
-      - { id: feed_in, kind: text, default: "", label: feed_in, hint: feed_in_hint }
+      - { id: tax, kind: number, min: 0, max: 100, step: 0.1, default: 0, unit: "%", label: tax, hint: tax_hint }
+      - { id: delivery_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: delivery_additional, hint: delivery_additional_hint }
+      - { id: sales_entity, kind: entity, domains: [sensor], attributes: [unit_of_measurement], label: sales_entity, hint: sales_entity_hint }
+      - { id: sales_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: sales_additional, hint: sales_additional_hint }
       - id: graph
         kind: choice
         default: bars
@@ -179,8 +182,10 @@ tiles:
           - { value: eur, label: unit_eur }
           - { value: cents, label: unit_cents }
       - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
-      - { id: delivery, kind: text, default: "", label: delivery, hint: delivery_hint }
-      - { id: feed_in, kind: text, default: "", label: feed_in, hint: feed_in_hint }
+      - { id: tax, kind: number, min: 0, max: 100, step: 0.1, default: 0, unit: "%", label: tax, hint: tax_hint }
+      - { id: delivery_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: delivery_additional, hint: delivery_additional_hint }
+      - { id: sales_entity, kind: entity, domains: [sensor], attributes: [unit_of_measurement], label: sales_entity, hint: sales_entity_hint }
+      - { id: sales_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: sales_additional, hint: sales_additional_hint }
       - id: graph
         kind: choice
         default: bars
