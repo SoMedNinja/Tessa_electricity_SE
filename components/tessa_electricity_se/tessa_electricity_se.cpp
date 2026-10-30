@@ -111,20 +111,27 @@ static bool read_epex(JsonObjectConst a, float scale, Prices &p) {
   return true;
 }
 
-// What the person pays and gets per kWh: the formulas typed for delivery and for feed-in, in p, the sensor's price per
-// kWh in its own currency. An empty delivery formula is p; an empty feed-in formula is no feed-in price.
+// Delivery applies a tax uplift and an additional charge to the selected buy sensor. Sales uses the separately selected
+// sell sensor and adds its configured per-kWh amount.
 struct Tariff {
   Formula delivery, feed_in;
-  bool feed = false;   // a feed-in formula was typed
+  float sales_additional = 0;
+  bool feed = false;
   bool error = false;  // one of them is not a formula: the tile says so in place of a price that would be wrong
 };
 
 static Tariff tariff_of(JsonObjectConst options) {
   Tariff t;
-  const bool delivery = t.delivery.parse(options["delivery"] | "");
-  const bool feed_in = t.feed_in.parse(options["feed_in"] | "");
-  t.feed = t.feed_in.set();
-  t.error = !delivery || !feed_in;
+  const float tax = options["tax"] | 0.0f;
+  const float delivery_additional = options["delivery_additional"] | 0.0f;
+  t.sales_additional = options["sales_additional"] | 0.0f;
+  char expression[64];
+  snprintf(expression, sizeof(expression), "p*%.6g+%.6g", 1.0f + tax / 100.0f, delivery_additional);
+  const bool delivery = t.delivery.parse(expression);
+  snprintf(expression, sizeof(expression), "p+%.6g", t.sales_additional);
+  const bool sales = t.feed_in.parse(expression);
+  t.feed = sales && std::strlen(options["sales_entity"] | "") > 0;
+  t.error = !delivery || !sales;
   return t;
 }
 
@@ -178,6 +185,24 @@ static void read_prices(JsonObjectConst data, bool cents, const Tariff &tariff, 
   p.lo = n ? lo : 0;
   p.hi = n ? hi : 0;
   p.avg = n ? sum / n : 0;
+}
+
+// The sales entity may also publish its own price list. If it reports only a current price, retain the buy sensor's
+// future curve and apply the configured sales adjustment to those intervals.
+static void read_sales(JsonObjectConst data, bool cents, const Tariff &tariff, Prices &p) {
+  p.has_feed = false;
+  if (!tariff.feed || data["state"].isNull()) return;
+  Tariff identity;
+  Prices sales;
+  read_prices(data, cents, identity, sales);
+  if (!sales.state_ok) return;
+  const float shown_additional = tariff.sales_additional * (cents ? 100.0f : 1.0f);
+  p.state_feed = p.feed_current = sales.state_current + shown_additional;
+  p.has_feed = true;
+  for (int s = 0; s < p.count(); s++) {
+    const float base = s < sales.count() && !std::isnan(sales.slot[s]) ? sales.slot[s] : p.slot[s];
+    p.feed[s] = std::isnan(base) ? NAN : base + shown_additional;
+  }
 }
 
 static const Prices NO_PRICES{};
@@ -821,6 +846,7 @@ class PriceTile : public tessera::Tile {
 
   void on_state(JsonObjectConst data) override {
     read_prices(data, cents_, tariff_, prices_);
+    read_sales(data["entities"]["sales_entity"], cents_, tariff_, prices_);
     if (prices_.chosen && (bar_->tile == nullptr || bar_->tile == this)) {
       bar_->tile = this;
       bar_->set = true;
@@ -1073,6 +1099,7 @@ class PriceCard : public tessera::Card {
 
   void on_state(JsonObjectConst data) override {
     read_prices(data, cents_, tariff_, prices_);
+    read_sales(data["entities"]["sales_entity"], cents_, tariff_, prices_);
     on_tick(last_epoch_);
   }
 
