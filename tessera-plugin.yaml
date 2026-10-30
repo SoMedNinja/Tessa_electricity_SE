@@ -4,7 +4,7 @@
 # Assistant. The price now
 # of a tile can also stand in the top bar.
 id: tessa_electricity_se
-version: 0.1.0
+version: 0.1.1
 api: "0.12"
 icon: flash
 maintainer: SoMedNinja
