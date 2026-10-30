@@ -123,8 +123,14 @@ struct Tariff {
 // Parse a free-text tariff amount: at most two whole digits and no more decimal digits than the display precision.
 // A comma or point may be used as the decimal mark. Empty text means zero; costs may be negative, tax may not.
 static bool read_amount(JsonObjectConst options, const char *id, int decimals, bool negative, float &out) {
-  const char *text = options[id] | "0";
+  const char *source = options[id] | "0";
+  char input[65];
+  if (std::strlen(source) >= sizeof(input)) return false;
+  std::snprintf(input, sizeof(input), "%s", source);
+  char *text = input;
   while (*text == ' ' || *text == '\t') text++;
+  char *last = text + std::strlen(text);
+  while (last > text && (last[-1] == ' ' || last[-1] == '\t')) *--last = 0;
   if (!*text) { out = 0; return true; }
   char value[16];
   size_t n = 0, whole = 0, fraction = 0;
@@ -972,8 +978,12 @@ class PriceTile : public tessera::Tile {
 
   void on_state(JsonObjectConst data) override {
     read_prices(data, cents_, tariff_, prices_);
-    market_area_for(entity_, shared_->market_area);
-    market_currency_for(data, shared_->market_currency);
+    market_area_for(entity_, market_area_);
+    if (market_area_[0]) {
+      market_currency_for(data, market_currency_);
+      std::snprintf(shared_->market_area, sizeof(shared_->market_area), "%s", market_area_);
+      std::snprintf(shared_->market_currency, sizeof(shared_->market_currency), "%s", market_currency_);
+    }
     maybe_request_market();
     apply_market_prices(*shared_, tessera::epoch(), tariff_, cents_, prices_);
     if (prices_.chosen && (bar_->tile == nullptr || bar_->tile == this)) {
@@ -1107,7 +1117,9 @@ class PriceTile : public tessera::Tile {
 
  private:
   void maybe_request_market() {
-    if (shared_->nordpool_config_entry.empty() || !shared_->market_area[0] || !tessera::epoch()) return;
+    if (shared_->nordpool_config_entry.empty() || !market_area_[0] || !tessera::epoch()) return;
+    std::snprintf(shared_->market_area, sizeof(shared_->market_area), "%s", market_area_);
+    std::snprintf(shared_->market_currency, sizeof(shared_->market_currency), "%s", market_currency_);
     const uint32_t now_ms = millis();
     const uint32_t now = tessera::epoch();
     const uint32_t day_start = midnight_of(now);
@@ -1115,6 +1127,13 @@ class PriceTile : public tessera::Tile {
         shared_->market_requested_day == day_start &&
         std::strcmp(shared_->market_requested_area, shared_->market_area) == 0 &&
         std::strcmp(shared_->market_requested_currency, shared_->market_currency) == 0) return;
+    const bool market_changed = shared_->market_requested_day != day_start ||
+                                std::strcmp(shared_->market_requested_area, shared_->market_area) != 0 ||
+                                std::strcmp(shared_->market_requested_currency, shared_->market_currency) != 0;
+    if (market_changed) {
+      shared_->market_today_count = shared_->market_tomorrow_count = 0;
+      shared_->market_today_start = shared_->market_tomorrow_start = 0;
+    }
     char today[12], tomorrow[12];
     market_date(day_start, today);
     market_date(day_start + 26 * 3600, tomorrow);
@@ -1192,6 +1211,7 @@ class PriceTile : public tessera::Tile {
   int decimals_ = 3, width_ = 0, height_ = 0, head_ = 0, tile_ = -1;
   int cells_n_ = 0, cells_h_ = 0, cell_gap_ = 1;
   uint32_t market_generation_ = 0;
+  char market_area_[4] = "", market_currency_[8] = "";
   uint32_t last_epoch_ = 0;
   lv_obj_t *value_{}, *unit_{}, *name_{}, *feed_{}, *cells_[MAX_CELLS]{};
 };
