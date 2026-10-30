@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Keep the sales entity option within the fields accepted by Tessera's tile option validator.
+
 ## 0.1.2
 
 - Allow choosing Nord Pool current-price sensors without a `raw_today` attribute.
