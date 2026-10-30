@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+
+- Color intervals green below their 24-hour average and red above it.
+- Keep tapped intervals selected until another interval is tapped; pass chart touches through to the tile/card handler.
+- Show the active or selected interval beneath the tile's headline price.
+
 ## 0.1.7
 
 - Clear cached Nord Pool intervals when the selected market area, currency or local date changes.
