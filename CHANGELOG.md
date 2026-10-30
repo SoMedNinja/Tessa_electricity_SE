@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- Clear cached Nord Pool intervals when the selected market area, currency or local date changes.
+
 ## 0.1.6
 
 - Fetch built-in Nord Pool interval prices for today and tomorrow through Home Assistant's Nord Pool action.
