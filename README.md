@@ -1,48 +1,50 @@
 # Tessa electricity SE
 
-A Tessera electricity dashboard tile for Home Assistant. Choose a Nord Pool, ENTSO-e, GE-Spot or EPEX Spot sensor, then view the current price and today's and tomorrow's prices in a touchable 15-minute graph.
+A Tessera electricity tile for Home Assistant. Choose a price sensor and configure purchase and optional sales costs in the tile inspector.
 
 ## Features
 
-- Sensor type is chosen by the tile: Nord Pool, ENTSO-e, GE-Spot or EPEX Spot. For the Nord Pool integration, select the sensor that carries `raw_today` and `raw_tomorrow` (for example, Nord Pool SE3 ▸ Aktuellt pris).
-- Currency follows the selected entity's `unit_of_measurement`, including `SEK/kWh`. The optional cents display changes the numeric scale without tying the tile to a particular currency.
-- 15-minute chart granularity whenever the sensor provides quarter-hour data. Today's and tomorrow's prices are shown together once tomorrow's list is available. The graph rolls forward with the local calendar day and does not retain a completed day.
-- For each day independently, the cheapest 30% is green, the most expensive 30% is red, and the middle 40% uses a continuous green–amber–red gradient. Past bars are muted grey.
-- The current price is prominent and colored by its place in that day's prices. Tap a bar to show that slot's price and time range in the headline.
-- Configure a delivery price and a sales price formula. Both use `p`, the selected sensor price in its own currency per kWh. The delivery formula is applied to the purchase price; the sales formula is shown as the feed-in value.
-- Choose bars or a stepped line. Larger tiles and the full-screen card show the price graph.
+- Separate Nord Pool, ENTSO-e, GE-Spot and EPEX Spot tile types. Nord Pool entity selection includes current-price sensors without a `raw_today` attribute.
+- Currency follows the sensor's `unit_of_measurement`, including `SEK/kWh`. Optional cents display scales the number without changing its currency.
+- When the sensor supplies price lists, the graph shows today and tomorrow at the sensor's resolution, including 15-minute data. Each day is ranked independently: cheapest 30% green, middle 40% graded green–amber–red, priciest 30% red. Past bars are grey.
+- Tap a graph interval to show its price and time range in the headline.
+- Delivery and sales prices use separate numeric settings. No formulas need to be typed.
 
-## Tariff formulas
+## Configure costs
 
-The formula field supports `p`, decimal values, parentheses and `+ - * /`. Decimal comma is accepted.
+In the tile inspector, choose the **Entity** for delivery, then set:
 
-| Setting | Example | Result |
-|---|---|---|
-| Delivery price | `p*1.25+0.08` | Apply a 25% uplift, then add 0.08 currency units/kWh |
-| Sales price | `p+0.025` | Add 0.025 currency units/kWh to the market price |
-| Fixed price | `0.42` | Use a fixed price in the sensor currency/kWh |
+- **Tax (%)**: percentage uplift. Enter `25` for 25%.
+- **Delivery additional cost**: added after tax, in the selected sensor's currency per kWh.
+- **Sales price sensor**: optional sensor for the price received when exporting electricity.
+- **Sales additional cost**: added to that sensor's price, in its currency per kWh.
 
-For a SEK/kWh sensor, `0.08` means 0.08 SEK/kWh. Keep both formulas empty to show the sensor price directly and omit sales pricing.
+The calculations are:
+
+- Delivery: `delivery sensor × (1 + tax / 100) + delivery additional cost`
+- Sales: `sales sensor + sales additional cost`
+
+For a SEK/kWh sensor, an additional cost of `0.08` means 0.08 SEK/kWh. Costs may be negative.
 
 ## Install
 
-1. In Tessera's **Plugins** page, choose **Add with a link** and enter this repository URL.
-2. Select the screen(s) where the plugin should be installed and let Tessera build the firmware.
-3. In **Layout**, place one of the **Tessa electricity SE** tiles. Pick the matching integration tile, select its price sensor, and set the tariff formulas if needed.
-4. Use a tile of at least 2×2 for an embedded graph. Tap a bar to inspect its price and time window; tap outside the bars to open the full-screen graph card.
+1. In Tessera's **Plugins** page, add this repository by link.
+2. Place a **Tessa electricity SE** tile in **Layout** and select the matching sensor in **Entity**.
+3. Set tax and additional costs in the tile inspector. Choose a sales sensor if you export electricity.
+4. Use a tile at least 2×2 for the graph. Tap a bar to inspect its interval; tap elsewhere to open the full-screen graph card.
 
-The plugin uses Tessera's native plugin API and ESPHome external-component structure. It is designed to scale across Tessera-supported boards, including the Waveshare ESP32-S3-Touch-LCD-7B.
+The plugin uses Tessera's native plugin API and ESPHome external-component structure, for Tessera-supported boards including the Waveshare ESP32-S3-Touch-LCD-7B.
 
 ## Sensor data
 
-The chosen sensor must expose daily price lists supported by its integration:
+The graph reads these list attributes:
 
 - Nord Pool: `raw_today[*].value`, `raw_tomorrow[*].value`
 - ENTSO-e: `prices_today[*].price`, `prices_tomorrow[*].price`
 - GE-Spot: `today_interval_prices[*].value`, `tomorrow_interval_prices[*].value`
 - EPEX Spot: `data[*].price_per_kwh` with each item's `start_time`
 
-If a source publishes hourly prices, the plugin keeps that hourly resolution. Quarter-hour granularity is available when the selected sensor supplies quarter-hour values.
+If a selected entity exposes only its current value and no supported price lists, the tile can show its current price but cannot draw the interval graph. Hourly lists remain hourly; quarter-hour lists retain 15-minute resolution.
 
 ## Attribution
 
