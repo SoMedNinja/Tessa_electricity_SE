@@ -2,7 +2,7 @@
 # card. Delivery tax and costs, and optional sales display and cost, are configured per tile. The price now of a tile
 # can also stand in the top bar.
 id: tessa_electricity_se
-version: 0.1.4
+version: 0.1.5
 api: "0.12"
 icon: flash
 maintainer: SoMedNinja
@@ -41,11 +41,11 @@ tiles:
         choices:
           - { value: eur, label: unit_eur }
           - { value: cents, label: unit_cents }
-      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
-      - { id: tax, kind: number, min: 0, max: 100, step: 0.1, default: 0, unit: "%", label: tax, hint: tax_hint }
-      - { id: delivery_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: delivery_additional, hint: delivery_additional_hint }
+      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 2, label: decimals, hint: decimals_hint }
+      - { id: tax, kind: text, default: "0", label: tax, hint: tax_hint }
+      - { id: delivery_additional, kind: text, default: "0", label: delivery_additional, hint: delivery_additional_hint }
       - { id: show_sales, kind: toggle, default: false, label: show_sales, hint: show_sales_hint }
-      - { id: sales_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: sales_additional, hint: sales_additional_hint }
+      - { id: sales_additional, kind: text, default: "0", label: sales_additional, hint: sales_additional_hint }
       - id: graph
         kind: choice
         default: bars
@@ -87,11 +87,11 @@ tiles:
         choices:
           - { value: eur, label: unit_eur }
           - { value: cents, label: unit_cents }
-      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
-      - { id: tax, kind: number, min: 0, max: 100, step: 0.1, default: 0, unit: "%", label: tax, hint: tax_hint }
-      - { id: delivery_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: delivery_additional, hint: delivery_additional_hint }
+      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 2, label: decimals, hint: decimals_hint }
+      - { id: tax, kind: text, default: "0", label: tax, hint: tax_hint }
+      - { id: delivery_additional, kind: text, default: "0", label: delivery_additional, hint: delivery_additional_hint }
       - { id: show_sales, kind: toggle, default: false, label: show_sales, hint: show_sales_hint }
-      - { id: sales_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: sales_additional, hint: sales_additional_hint }
+      - { id: sales_additional, kind: text, default: "0", label: sales_additional, hint: sales_additional_hint }
       - id: graph
         kind: choice
         default: bars
@@ -133,11 +133,11 @@ tiles:
         choices:
           - { value: eur, label: unit_eur }
           - { value: cents, label: unit_cents }
-      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
-      - { id: tax, kind: number, min: 0, max: 100, step: 0.1, default: 0, unit: "%", label: tax, hint: tax_hint }
-      - { id: delivery_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: delivery_additional, hint: delivery_additional_hint }
+      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 2, label: decimals, hint: decimals_hint }
+      - { id: tax, kind: text, default: "0", label: tax, hint: tax_hint }
+      - { id: delivery_additional, kind: text, default: "0", label: delivery_additional, hint: delivery_additional_hint }
       - { id: show_sales, kind: toggle, default: false, label: show_sales, hint: show_sales_hint }
-      - { id: sales_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: sales_additional, hint: sales_additional_hint }
+      - { id: sales_additional, kind: text, default: "0", label: sales_additional, hint: sales_additional_hint }
       - id: graph
         kind: choice
         default: bars
@@ -181,11 +181,11 @@ tiles:
         choices:
           - { value: eur, label: unit_eur }
           - { value: cents, label: unit_cents }
-      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
-      - { id: tax, kind: number, min: 0, max: 100, step: 0.1, default: 0, unit: "%", label: tax, hint: tax_hint }
-      - { id: delivery_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: delivery_additional, hint: delivery_additional_hint }
+      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 2, label: decimals, hint: decimals_hint }
+      - { id: tax, kind: text, default: "0", label: tax, hint: tax_hint }
+      - { id: delivery_additional, kind: text, default: "0", label: delivery_additional, hint: delivery_additional_hint }
       - { id: show_sales, kind: toggle, default: false, label: show_sales, hint: show_sales_hint }
-      - { id: sales_additional, kind: number, min: -100, max: 100, step: 0.001, default: 0, label: sales_additional, hint: sales_additional_hint }
+      - { id: sales_additional, kind: text, default: "0", label: sales_additional, hint: sales_additional_hint }
       - id: graph
         kind: choice
         default: bars
