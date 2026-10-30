@@ -2,7 +2,7 @@
 # card. Delivery tax and costs, and optional sales display and cost, are configured per tile. The price now of a tile
 # can also stand in the top bar.
 id: tessa_electricity_se
-version: 0.1.5
+version: 0.1.6
 api: "0.12"
 icon: flash
 maintainer: SoMedNinja
@@ -13,6 +13,18 @@ requires:
   esphome: 2026.6.2
 boards: any
 flash_kb: 16
+
+permissions:
+  ha_commands: ["call_service:nordpool.get_prices_for_date"]
+
+inputs:
+  - { id: nordpool_config_entry, kind: text, scope: screen, label: nordpool_config_entry, hint: nordpool_config_entry_hint }
+
+answers:
+  - command: call_service:nordpool.get_prices_for_date
+    fields:
+      prices: { path: "[*][*].price", as: numbers }
+      start: { path: "[*][0].start", as: epoch }
 
 # The price now of a tile on the screen, with that tile's sensor, formula and unit.
 bar_items:
