@@ -6,8 +6,8 @@ A Tessera electricity tile for Home Assistant. Choose a price sensor and configu
 
 - Separate Nord Pool, ENTSO-e, GE-Spot and EPEX Spot tile types. Nord Pool entity selection includes current-price sensors without a `raw_today` attribute.
 - Currency follows the sensor's `unit_of_measurement`, including `SEK/kWh`. Optional cents display scales the number without changing its currency.
-- The graph shows today and tomorrow at the source's available resolution, including 15-minute data when available. Nord Pool's built-in current-price sensors use its `get_prices_for_date` action for the interval lists. Each day is ranked independently: cheapest 30% green, middle 40% graded green–amber–red, priciest 30% red. Past bars are grey.
-- Tap a graph interval to show its price and time range in the headline.
+- The graph shows today and tomorrow at the source's available resolution, including 15-minute data when available. Nord Pool's built-in current-price sensors use its `get_prices_for_date` action for the interval lists. Each 24-hour day is averaged independently: intervals below the average are green and intervals above it are red. Past bars are grey.
+- Tap a graph interval to show its price and time range beneath the headline price. The selection stays until you tap another interval or close the card.
 - Delivery and sales prices use separate inputs. No formulas need to be typed. Tessera's supported tile option kinds allow one selected sensor per tile, so sales pricing uses that sensor plus the configured sales additional cost.
 
 ## Configure costs
