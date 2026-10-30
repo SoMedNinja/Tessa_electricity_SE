@@ -799,7 +799,116 @@ struct Shared {
   int decimals = 3;
   Tariff tariff;
   Prices prices;
+  // The built-in Nord Pool integration exposes summary sensors; its action supplies the missing interval series.
+  std::string nordpool_config_entry;
+  char market_area[4] = "", market_currency[8] = "";
+  float market_today[MAX_DAY]{}, market_tomorrow[MAX_DAY]{};
+  int market_today_count = 0, market_tomorrow_count = 0;
+  uint32_t market_today_start = 0, market_tomorrow_start = 0;
+  uint32_t market_today_request = 0, market_tomorrow_request = 0;
+  uint32_t market_requested_ms = 0, market_requested_day = 0, market_generation = 0;
+  char market_requested_area[4] = "", market_requested_currency[8] = "";
 };
+
+static bool market_area_for(const std::string &entity, char out[4]) {
+  for (size_t i = 0; i + 3 < entity.size(); i++) {
+    if (entity[i] == '_' && entity[i + 1] == 's' && entity[i + 2] == 'e' && entity[i + 3] >= '1' && entity[i + 3] <= '5') {
+      snprintf(out, 4, "SE%c", entity[i + 3]);
+      return true;
+    }
+  }
+  out[0] = 0;
+  return false;
+}
+
+static void market_currency_for(JsonObjectConst data, char out[8]) {
+  const char *unit = data["attributes"]["unit_of_measurement"] | "";
+  const char *slash = strchr(unit, '/');
+  size_t n = slash ? static_cast<size_t>(slash - unit) : 0;
+  if (!n || n >= 8) { out[0] = 0; return; }
+  std::memcpy(out, unit, n);
+  out[n] = 0;
+}
+
+static uint32_t ask_market_day(const tessera::Plugin *plugin, const Shared &shared, const char *date) {
+  JsonDocument request;
+  request["ask"] = "call_service:nordpool.get_prices_for_date";
+  JsonObject data = request["data"].to<JsonObject>();
+  data["config_entry"] = shared.nordpool_config_entry;
+  data["date"] = date;
+  JsonArray areas = data["areas"].to<JsonArray>();
+  areas.add(shared.market_area);
+  if (shared.market_currency[0]) data["currency"] = shared.market_currency;
+  return tessera::send(plugin, request.as<JsonObjectConst>());
+}
+
+static bool same_local_day(uint32_t a, uint32_t b) {
+  if (!a || !b) return false;
+  const tessera::LocalTime x = tessera::local_time(a), y = tessera::local_time(b);
+  return x.year == y.year && x.month == y.month && x.day == y.day;
+}
+
+static void market_date(uint32_t epoch, char out[12]) {
+  const tessera::LocalTime t = tessera::local_time(epoch);
+  snprintf(out, 12, "%04d-%02d-%02d", t.year, t.month, t.day);
+}
+
+static void apply_market_prices(const Shared &shared, uint32_t epoch, const Tariff &tariff, bool cents, Prices &p) {
+  if (shared.market_today_count && same_local_day(shared.market_today_start, epoch) && p.today == 0) {
+    p.today = shared.market_today_count;
+    const float shown = cents ? 100.0f : 1.0f;
+    for (int i = 0; i < p.today; i++) {
+      p.slot[i] = tariff.delivery(shared.market_today[i]) * shown;
+      p.feed[i] = tariff.feed_in(shared.market_today[i]) * shown;
+    }
+  }
+  const uint32_t tomorrow = midnight_of(epoch) + 26 * 3600;
+  const bool quarters = p.today >= 90 ||
+                        (shared.market_today_count >= 90 && same_local_day(shared.market_today_start, epoch)) ||
+                        (shared.market_tomorrow_count >= 90 && same_local_day(shared.market_tomorrow_start, tomorrow));
+  // During Nord Pool's MTU transition, today can still be hourly while tomorrow is already quarter-hourly.
+  // Keep both days at the finer resolution by repeating each hourly value across its four quarter slots.
+  if (quarters && p.today > 0 && p.today < 90) {
+    for (int i = p.today - 1; i >= 0; i--) {
+      for (int q = 0; q < 4; q++) {
+        p.slot[i * 4 + q] = p.slot[i];
+        p.feed[i * 4 + q] = p.feed[i];
+      }
+    }
+    p.today *= 4;
+  }
+  if (shared.market_tomorrow_count && same_local_day(shared.market_tomorrow_start, tomorrow) && p.today > 0 && p.tomorrow == 0) {
+    float day[MAX_DAY], sales[MAX_DAY];
+    const float shown = cents ? 100.0f : 1.0f;
+    const int n = std::min(shared.market_tomorrow_count, MAX_DAY);
+    for (int i = 0; i < n; i++) {
+      day[i] = tariff.delivery(shared.market_tomorrow[i]) * shown;
+      sales[i] = tariff.feed_in(shared.market_tomorrow[i]) * shown;
+    }
+    const int resolved = resolve(day, n, quarters);
+    const int sales_resolved = resolve(sales, n, quarters);
+    p.tomorrow = std::min(std::min(resolved, sales_resolved), MAX_DAY);
+    for (int i = 0; i < p.tomorrow; i++) {
+      p.slot[p.today + i] = day[i];
+      p.feed[p.today + i] = sales[i];
+    }
+  }
+  p.has_feed = tariff.feed && p.state_ok;
+  float lo = INFINITY, hi = -INFINITY, sum = 0;
+  int count = 0;
+  p.lo_slot = p.hi_slot = 0;
+  for (int i = 0; i < p.today; i++) {
+    const float value = p.slot[i];
+    if (std::isnan(value)) continue;
+    if (value < lo) { lo = value; p.lo_slot = i; }
+    if (value > hi) { hi = value; p.hi_slot = i; }
+    sum += value;
+    count++;
+  }
+  p.lo = count ? lo : 0;
+  p.hi = count ? hi : 0;
+  p.avg = count ? sum / count : 0;
+}
 
 // What the top bar shows: the prices of one tile on the screen, with its formula, unit and decimals. The first tile
 // that has a sensor gives them, and keeps giving them while it lives; the prices stay when it goes (the CYD makes a
@@ -863,6 +972,10 @@ class PriceTile : public tessera::Tile {
 
   void on_state(JsonObjectConst data) override {
     read_prices(data, cents_, tariff_, prices_);
+    market_area_for(entity_, shared_->market_area);
+    market_currency_for(data, shared_->market_currency);
+    maybe_request_market();
+    apply_market_prices(*shared_, tessera::epoch(), tariff_, cents_, prices_);
     if (prices_.chosen && (bar_->tile == nullptr || bar_->tile == this)) {
       bar_->tile = this;
       bar_->set = true;
@@ -874,6 +987,19 @@ class PriceTile : public tessera::Tile {
   }
 
   void on_tick(uint32_t epoch) override {
+    maybe_request_market();
+    if (market_generation_ != shared_->market_generation) {
+      apply_market_prices(*shared_, epoch, tariff_, cents_, prices_);
+      market_generation_ = shared_->market_generation;
+      if (prices_.chosen && (bar_->tile == nullptr || bar_->tile == this)) {
+        bar_->tile = this;
+        bar_->set = true;
+        bar_->cents = cents_;
+        bar_->error = tariff_.error;
+        bar_->decimals = decimals_;
+        bar_->prices = prices_;
+      }
+    }
     price_now(prices_, epoch);
     std::string big, small;
     if (!prices_.chosen) {
@@ -980,6 +1106,26 @@ class PriceTile : public tessera::Tile {
   }
 
  private:
+  void maybe_request_market() {
+    if (shared_->nordpool_config_entry.empty() || !shared_->market_area[0] || !tessera::epoch()) return;
+    const uint32_t now_ms = millis();
+    const uint32_t now = tessera::epoch();
+    const uint32_t day_start = midnight_of(now);
+    if (shared_->market_requested_ms && now_ms - shared_->market_requested_ms < 3600000 &&
+        shared_->market_requested_day == day_start &&
+        std::strcmp(shared_->market_requested_area, shared_->market_area) == 0 &&
+        std::strcmp(shared_->market_requested_currency, shared_->market_currency) == 0) return;
+    char today[12], tomorrow[12];
+    market_date(day_start, today);
+    market_date(day_start + 26 * 3600, tomorrow);
+    shared_->market_today_request = ask_market_day(plugin_, *shared_, today);
+    shared_->market_tomorrow_request = ask_market_day(plugin_, *shared_, tomorrow);
+    shared_->market_requested_ms = now_ms;
+    shared_->market_requested_day = day_start;
+    std::snprintf(shared_->market_requested_area, sizeof(shared_->market_requested_area), "%s", shared_->market_area);
+    std::snprintf(shared_->market_requested_currency, sizeof(shared_->market_requested_currency), "%s", shared_->market_currency);
+  }
+
   // The name at the left and the price with its unit at the right in one row, `room` high; without a name the price
   // has the whole row.
   void place_row(const std::string &big, const std::string &small, const std::string &name, int room) {
@@ -1045,6 +1191,7 @@ class PriceTile : public tessera::Tile {
   Grid grid_ = Grid::NONE;
   int decimals_ = 3, width_ = 0, height_ = 0, head_ = 0, tile_ = -1;
   int cells_n_ = 0, cells_h_ = 0, cell_gap_ = 1;
+  uint32_t market_generation_ = 0;
   uint32_t last_epoch_ = 0;
   lv_obj_t *value_{}, *unit_{}, *name_{}, *feed_{}, *cells_[MAX_CELLS]{};
 };
@@ -1115,11 +1262,13 @@ class PriceCard : public tessera::Card {
 
   void on_state(JsonObjectConst data) override {
     read_prices(data, cents_, tariff_, prices_);
+    apply_market_prices(*shared_, tessera::epoch(), tariff_, cents_, prices_);
     on_tick(last_epoch_);
   }
 
   void on_tick(uint32_t epoch) override {
     last_epoch_ = epoch;
+    apply_market_prices(*shared_, epoch, tariff_, cents_, prices_);
     price_now(prices_, epoch);
     const bool ok = prices_.chosen && prices_.has_current;
     const bool graph = ok && prices_.today > 0;
@@ -1280,8 +1429,36 @@ class PriceCard : public tessera::Card {
   lv_obj_t *value_{}, *unit_{}, *feed_{}, *avg_cap_{}, *avg_{}, *extreme_[2]{}, *today_{}, *tomorrow_{}, *surface_{};
 };
 
+void ElectricityPrice::on_message(JsonObjectConst message) {
+  const uint32_t re = message["re"] | 0u;
+  if (!re) return;
+  const bool today = re == shared_->market_today_request;
+  const bool tomorrow = re == shared_->market_tomorrow_request;
+  if (!today && !tomorrow) return;
+  if (!(message["ok"] | false)) {
+    if (today) shared_->market_today_request = 0;
+    if (tomorrow) shared_->market_tomorrow_request = 0;
+    return;
+  }
+  JsonObjectConst result = message["result"];
+  JsonArrayConst prices = result["prices"].as<JsonArrayConst>();
+  const uint32_t start = result["start"] | 0u;
+  if (!prices.size() || !start) return;
+  if (today) {
+    shared_->market_today_count = read_span(prices, 0, static_cast<int>(prices.size()), 0.001f, shared_->market_today);
+    shared_->market_today_start = start;
+    shared_->market_today_request = 0;
+  } else {
+    shared_->market_tomorrow_count = read_span(prices, 0, static_cast<int>(prices.size()), 0.001f, shared_->market_tomorrow);
+    shared_->market_tomorrow_start = start;
+    shared_->market_tomorrow_request = 0;
+  }
+  shared_->market_generation++;
+}
+
 void ElectricityPrice::setup() {
   shared_ = new Shared();
+  shared_->nordpool_config_entry = nordpool_config_entry_;
   bar_ = new BarSource();
   // A tile per integration: the inspector lists only sensors that have the attributes of that one.
   add_tile("nordpool", [this]() { return new PriceTile(this, shared_, bar_); });
