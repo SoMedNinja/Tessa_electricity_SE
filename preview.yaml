@@ -1,0 +1,52 @@
+# What tools/preview.py shows: a Nord Pool sensor with quarters of today and tomorrow, a Dutch tariff and a feed-in
+# price, as a stepped line of the next 24 hours and as bars; an ENTSO-e sensor with the hours of today and a fixed
+# feed-in price that is at times above the delivery price, as a stepped line without fill; and an EPEX Spot sensor with
+# yesterday, today and tomorrow in one list. Each example also gets a page of its own at full size, and the CYD holds
+# six pages: four examples fit.
+tiles:
+  - tile: nordpool
+    name: Next 24 h
+    entity: sensor.nordpool
+    options: { delivery: "(p+0.12)*1.21", feed_in: "p-0.02", graph: line, grid: dotted, ahead: true }
+    sizes: [2x2, 4x2]
+  - tile: nordpool
+    name: Nord Pool
+    entity: sensor.nordpool
+    options: { delivery: "(p+0.12)*1.21", feed_in: "p-0.02", grid: solid }
+    sizes: [1x1, 2x1, 4x2]
+  - tile: entsoe
+    name: ENTSO-e
+    entity: sensor.entsoe
+    options: { unit: cents, fixed: 1, feed_in: "0,30", graph: line, fill: false }
+    sizes: [1x1, 3x2]
+  - tile: epex
+    name: EPEX Spot
+    entity: sensor.epex_spot_data_total_price
+    options: { unit: cents, fixed: 1 }
+    sizes: [1x1, 2x2, 4x2]
+
+states:
+  sensor.nordpool:
+    state: "0.27"
+    attributes:
+      friendly_name: Nord Pool
+      unit_of_measurement: EUR/kWh
+      raw_today: [{ value: 0.158 }, { value: 0.165 }, { value: 0.172 }, { value: 0.177 }, { value: 0.18 }, { value: 0.18 }, { value: 0.177 }, { value: 0.172 }, { value: 0.165 }, { value: 0.156 }, { value: 0.148 }, { value: 0.14 }, { value: 0.135 }, { value: 0.132 }, { value: 0.133 }, { value: 0.138 }, { value: 0.146 }, { value: 0.157 }, { value: 0.171 }, { value: 0.186 }, { value: 0.2 }, { value: 0.214 }, { value: 0.226 }, { value: 0.235 }, { value: 0.241 }, { value: 0.244 }, { value: 0.245 }, { value: 0.243 }, { value: 0.24 }, { value: 0.236 }, { value: 0.234 }, { value: 0.233 }, { value: 0.235 }, { value: 0.24 }, { value: 0.248 }, { value: 0.259 }, { value: 0.272 }, { value: 0.287 }, { value: 0.303 }, { value: 0.318 }, { value: 0.332 }, { value: 0.343 }, { value: 0.35 }, { value: 0.355 }, { value: 0.355 }, { value: 0.353 }, { value: 0.348 }, { value: 0.341 }, { value: 0.334 }, { value: 0.327 }, { value: 0.322 }, { value: 0.319 }, { value: 0.319 }, { value: 0.322 }, { value: 0.327 }, { value: 0.335 }, { value: 0.344 }, { value: 0.353 }, { value: 0.361 }, { value: 0.367 }, { value: 0.37 }, { value: 0.37 }, { value: 0.366 }, { value: 0.358 }, { value: 0.348 }, { value: 0.335 }, { value: 0.32 }, { value: 0.306 }, { value: 0.292 }, { value: 0.28 }, { value: 0.271 }, { value: 0.264 }, { value: 0.261 }, { value: 0.261 }, { value: 0.262 }, { value: 0.266 }, { value: 0.269 }, { value: 0.272 }, { value: 0.273 }, { value: 0.271 }, { value: 0.267 }, { value: 0.259 }, { value: 0.248 }, { value: 0.235 }, { value: 0.22 }, { value: 0.204 }, { value: 0.189 }, { value: 0.175 }, { value: 0.163 }, { value: 0.155 }, { value: 0.15 }, { value: 0.148 }, { value: 0.15 }, { value: 0.155 }, { value: 0.161 }, { value: 0.168 }]
+      raw_tomorrow: [{ value: 0.198 }, { value: 0.205 }, { value: 0.212 }, { value: 0.217 }, { value: 0.22 }, { value: 0.22 }, { value: 0.217 }, { value: 0.212 }, { value: 0.205 }, { value: 0.196 }, { value: 0.188 }, { value: 0.18 }, { value: 0.175 }, { value: 0.172 }, { value: 0.173 }, { value: 0.178 }, { value: 0.186 }, { value: 0.197 }, { value: 0.211 }, { value: 0.226 }, { value: 0.24 }, { value: 0.254 }, { value: 0.266 }, { value: 0.275 }, { value: 0.281 }, { value: 0.284 }, { value: 0.285 }, { value: 0.283 }, { value: 0.28 }, { value: 0.276 }, { value: 0.274 }, { value: 0.273 }, { value: 0.275 }, { value: 0.28 }, { value: 0.288 }, { value: 0.299 }, { value: 0.312 }, { value: 0.327 }, { value: 0.343 }, { value: 0.358 }, { value: 0.372 }, { value: 0.383 }, { value: 0.39 }, { value: 0.395 }, { value: 0.395 }, { value: 0.393 }, { value: 0.388 }, { value: 0.381 }, { value: 0.374 }, { value: 0.367 }, { value: 0.362 }, { value: 0.359 }, { value: 0.359 }, { value: 0.362 }, { value: 0.367 }, { value: 0.375 }, { value: 0.384 }, { value: 0.393 }, { value: 0.401 }, { value: 0.407 }, { value: 0.41 }, { value: 0.41 }, { value: 0.406 }, { value: 0.398 }, { value: 0.388 }, { value: 0.375 }, { value: 0.36 }, { value: 0.346 }, { value: 0.332 }, { value: 0.32 }, { value: 0.311 }, { value: 0.304 }, { value: 0.301 }, { value: 0.301 }, { value: 0.302 }, { value: 0.306 }, { value: 0.309 }, { value: 0.312 }, { value: 0.313 }, { value: 0.311 }, { value: 0.307 }, { value: 0.299 }, { value: 0.288 }, { value: 0.275 }, { value: 0.26 }, { value: 0.244 }, { value: 0.229 }, { value: 0.215 }, { value: 0.203 }, { value: 0.195 }, { value: 0.19 }, { value: 0.188 }, { value: 0.19 }, { value: 0.195 }, { value: 0.201 }, { value: 0.208 }]
+  sensor.entsoe:
+    state: "0.27"
+    attributes:
+      friendly_name: ENTSO-e
+      unit_of_measurement: EUR/kWh
+      prices_today: [{ time: x, price: 0.168 }, { time: x, price: 0.177 }, { time: x, price: 0.152 }, { time: x, price: 0.135 }, { time: x, price: 0.165 }, { time: x, price: 0.219 }, { time: x, price: 0.243 }, { time: x, price: 0.236 }, { time: x, price: 0.245 }, { time: x, price: 0.295 }, { time: x, price: 0.345 }, { time: x, price: 0.349 }, { time: x, price: 0.326 }, { time: x, price: 0.326 }, { time: x, price: 0.356 }, { time: x, price: 0.366 }, { time: x, price: 0.327 }, { time: x, price: 0.277 }, { time: x, price: 0.263 }, { time: x, price: 0.271 }, { time: x, price: 0.252 }, { time: x, price: 0.197 }, { time: x, price: 0.154 }, { time: x, price: 0.159 }]
+  sensor.epex_spot_data_total_price:
+    state: "0.2246"
+    attributes:
+      friendly_name: EPEX Spot Total Price
+      unit_of_measurement: €/kWh
+      data: [{ start_time: "{now-30h}", price_per_kwh: 0.12064 }, { start_time: "{now-29h}", price_per_kwh: 0.11468 }, { start_time: "x", price_per_kwh: 0.09817 }, { start_time: "x", price_per_kwh: 0.09906 }, { start_time: "x", price_per_kwh: 0.09802 }, { start_time: "x", price_per_kwh: 0.11757 }, { start_time: "x", price_per_kwh: 0.159 }, { start_time: "x", price_per_kwh: 0.18634 }, { start_time: "x", price_per_kwh: 0.17724 }, { start_time: "x", price_per_kwh: 0.13475 }, { start_time: "x", price_per_kwh: 0.08564 }, { start_time: "x", price_per_kwh: 0.06249 }, { start_time: "x", price_per_kwh: 0.0435 }, { start_time: "x", price_per_kwh: 0.06579 }, { start_time: "x", price_per_kwh: 0.09082 }, { start_time: "x", price_per_kwh: 0.15757 }, { start_time: "x", price_per_kwh: 0.225 }, { start_time: "x", price_per_kwh: 0.24764 }, { start_time: "x", price_per_kwh: 0.26219 }, { start_time: "x", price_per_kwh: 0.26203 }, { start_time: "x", price_per_kwh: 0.2456 }, { start_time: "x", price_per_kwh: 0.23288 }, { start_time: "x", price_per_kwh: 0.22501 }, { start_time: "x", price_per_kwh: 0.21116 }, { start_time: "x", price_per_kwh: 0.21543 }, { start_time: "x", price_per_kwh: 0.20951 }, { start_time: "x", price_per_kwh: 0.21206 }, { start_time: "x", price_per_kwh: 0.20786 }, { start_time: "x", price_per_kwh: 0.20699 }, { start_time: "x", price_per_kwh: 0.20851 }, { start_time: "x", price_per_kwh: 0.26404 }, { start_time: "x", price_per_kwh: 0.2964 }, { start_time: "x", price_per_kwh: 0.29413 }, { start_time: "x", price_per_kwh: 0.26443 }, { start_time: "x", price_per_kwh: 0.2246 }, { start_time: "x", price_per_kwh: 0.20759 }, { start_time: "x", price_per_kwh: 0.19586 }, { start_time: "x", price_per_kwh: 0.18991 }, { start_time: "x", price_per_kwh: 0.19074 }, { start_time: "x", price_per_kwh: 0.22617 }, { start_time: "x", price_per_kwh: 0.28949 }, { start_time: "x", price_per_kwh: 0.32507 }, { start_time: "x", price_per_kwh: 0.34309 }, { start_time: "x", price_per_kwh: 0.33348 }, { start_time: "x", price_per_kwh: 0.304 }, { start_time: "x", price_per_kwh: 0.27917 }, { start_time: "x", price_per_kwh: 0.25828 }, { start_time: "x", price_per_kwh: 0.2342 }, { start_time: "x", price_per_kwh: 0.20389 }, { start_time: "x", price_per_kwh: 0.19856 }, { start_time: "x", price_per_kwh: 0.20085 }, { start_time: "x", price_per_kwh: 0.19707 }, { start_time: "x", price_per_kwh: 0.19629 }, { start_time: "x", price_per_kwh: 0.19766 }, { start_time: "x", price_per_kwh: 0.24764 }, { start_time: "x", price_per_kwh: 0.27676 }, { start_time: "x", price_per_kwh: 0.27472 }, { start_time: "x", price_per_kwh: 0.24799 }, { start_time: "x", price_per_kwh: 0.21214 }, { start_time: "x", price_per_kwh: 0.19683 }, { start_time: "x", price_per_kwh: 0.18627 }, { start_time: "x", price_per_kwh: 0.18092 }, { start_time: "x", price_per_kwh: 0.18167 }, { start_time: "x", price_per_kwh: 0.21355 }, { start_time: "x", price_per_kwh: 0.27054 }, { start_time: "x", price_per_kwh: 0.30256 }, { start_time: "x", price_per_kwh: 0.31878 }, { start_time: "x", price_per_kwh: 0.31013 }, { start_time: "x", price_per_kwh: 0.2836 }, { start_time: "x", price_per_kwh: 0.26125 }, { start_time: "x", price_per_kwh: 0.24245 }, { start_time: "x", price_per_kwh: 0.22078 }]
+
+cards:
+  - card: prices
+    entity: sensor.nordpool
+
