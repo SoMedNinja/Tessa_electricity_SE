@@ -26,7 +26,7 @@ tiles:
     name: tile_name_nordpool
     icon: flash
     sizes: { min: 1x1, max: 9x9, full: true }
-    memory: 24000
+    memory: 32000
     domains: [sensor]
     attributes: [unit_of_measurement]
     has_attributes: [raw_today]
@@ -70,7 +70,7 @@ tiles:
     name: tile_name_entsoe
     icon: flash
     sizes: { min: 1x1, max: 9x9, full: true }
-    memory: 24000
+    memory: 32000
     domains: [sensor]
     attributes: [unit_of_measurement]
     has_attributes: [prices_today]
@@ -114,7 +114,7 @@ tiles:
     name: tile_name_gespot
     icon: flash
     sizes: { min: 1x1, max: 9x9, full: true }
-    memory: 24000
+    memory: 32000
     domains: [sensor]
     attributes: [unit_of_measurement]
     has_attributes: [today_interval_prices]
@@ -158,7 +158,7 @@ tiles:
     name: tile_name_epex
     icon: flash
     sizes: { min: 1x1, max: 9x9, full: true }
-    memory: 24000
+    memory: 32000
     domains: [sensor]
     attributes: [unit_of_measurement]
     has_attributes: [data]
