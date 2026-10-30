@@ -14,8 +14,8 @@ A Tessera electricity tile for Home Assistant. Choose a price sensor and configu
 
 In the tile inspector, choose the **Entity** for delivery, then set:
 
-- **Tax (%)**: percentage uplift. Enter `25` for 25%.
-- **Delivery additional cost**: added after tax, in the selected sensor's currency per kWh.
+- **Tax (%)**: percentage uplift. Enter `25` for 25%. These are free-text fields with up to two whole digits and up to the selected decimal precision.
+- **Delivery additional cost**: added after tax, in the selected sensor's currency per kWh. Negative values are allowed.
 - **Show sales price**: optionally show the selected sensor's price adjusted for sales.
 - **Sales additional cost**: added to that sensor's price, in its currency per kWh.
 
@@ -30,7 +30,7 @@ For a SEK/kWh sensor, an additional cost of `0.08` means 0.08 SEK/kWh. Costs may
 
 1. In Tessera's **Plugins** page, add this repository by link.
 2. Place a **Tessa electricity SE** tile in **Layout** and select the matching sensor in **Entity**.
-3. Set tax and additional costs in the tile inspector. Enable **Show sales price** if you want the adjusted price shown.
+3. Set the decimal count, tax and additional costs in the tile inspector. The decimal count controls both dashboard price precision and allowed tariff-input precision. Enable **Show sales price** if you want the adjusted price shown.
 4. Use a tile at least 2×2 for the graph. Tap a bar to inspect its interval; tap elsewhere to open the full-screen graph card.
 
 The plugin uses Tessera's native plugin API and ESPHome external-component structure, for Tessera-supported boards including the Waveshare ESP32-S3-Touch-LCD-7B.
