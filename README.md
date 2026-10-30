@@ -8,7 +8,7 @@ A Tessera electricity tile for Home Assistant. Choose a price sensor and configu
 - Currency follows the sensor's `unit_of_measurement`, including `SEK/kWh`. Optional cents display scales the number without changing its currency.
 - When the sensor supplies price lists, the graph shows today and tomorrow at the sensor's resolution, including 15-minute data. Each day is ranked independently: cheapest 30% green, middle 40% graded green–amber–red, priciest 30% red. Past bars are grey.
 - Tap a graph interval to show its price and time range in the headline.
-- Delivery and sales prices use separate numeric settings. No formulas need to be typed.
+- Delivery and sales prices use separate numeric settings. No formulas need to be typed. Tessera's supported tile option kinds allow one selected sensor per tile, so sales pricing uses that sensor plus the configured sales additional cost.
 
 ## Configure costs
 
@@ -16,13 +16,13 @@ In the tile inspector, choose the **Entity** for delivery, then set:
 
 - **Tax (%)**: percentage uplift. Enter `25` for 25%.
 - **Delivery additional cost**: added after tax, in the selected sensor's currency per kWh.
-- **Sales price sensor**: optional sensor for the price received when exporting electricity.
+- **Show sales price**: optionally show the selected sensor's price adjusted for sales.
 - **Sales additional cost**: added to that sensor's price, in its currency per kWh.
 
 The calculations are:
 
 - Delivery: `delivery sensor × (1 + tax / 100) + delivery additional cost`
-- Sales: `sales sensor + sales additional cost`
+- Sales: `selected sensor + sales additional cost`
 
 For a SEK/kWh sensor, an additional cost of `0.08` means 0.08 SEK/kWh. Costs may be negative.
 
@@ -30,7 +30,7 @@ For a SEK/kWh sensor, an additional cost of `0.08` means 0.08 SEK/kWh. Costs may
 
 1. In Tessera's **Plugins** page, add this repository by link.
 2. Place a **Tessa electricity SE** tile in **Layout** and select the matching sensor in **Entity**.
-3. Set tax and additional costs in the tile inspector. Choose a sales sensor if you export electricity.
+3. Set tax and additional costs in the tile inspector. Enable **Show sales price** if you want the adjusted price shown.
 4. Use a tile at least 2×2 for the graph. Tap a bar to inspect its interval; tap elsewhere to open the full-screen graph card.
 
 The plugin uses Tessera's native plugin API and ESPHome external-component structure, for Tessera-supported boards including the Waveshare ESP32-S3-Touch-LCD-7B.
