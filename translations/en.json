@@ -39,6 +39,8 @@
     "show_sales_hint": "Show the selected price sensor plus the sales additional cost. This Tessera version allows one sensor per tile.",
     "sales_additional": "Sales additional cost",
     "sales_additional_hint": "Added to the selected sensor price, in its currency per kWh. Up to two whole digits and the selected number of decimals; negative values are allowed.",
+    "nordpool_config_entry": "Nord Pool config entry ID",
+    "nordpool_config_entry_hint": "For current-price sensors without a price list: copy the config_entry value from Home Assistant Developer Tools > Actions after selecting Nord Pool: Get prices for date. This enables today's and tomorrow's timeline.",
     "graph": "Graph",
     "graph_hint": "Bars, or a stepped line that follows the price slot by slot. The card shows the graph of the tile you open it from.",
     "graph_bars": "Bars",
