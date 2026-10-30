@@ -230,30 +230,31 @@ static void read_prices(JsonObjectConst data, bool cents, const Tariff &tariff, 
 
 static const Prices NO_PRICES{};
 
-// Rank a price within its own delivery day. This keeps tomorrow's classification independent of today's prices.
-static float day_percentile(const Prices &p, int slot, float price) {
+// Compare against the average of each 24-hour delivery day, keeping tomorrow independent of today.
+static float day_average_relation(const Prices &p, int slot, float price) {
   if (slot < 0 || slot >= p.count() || std::isnan(price)) return 0.5f;
   const int first = slot < p.today ? 0 : p.today;
   const int last = slot < p.today ? p.today : p.count();
-  int count = 0, below = 0;
+  float sum = 0;
+  int count = 0;
   for (int i = first; i < last; i++) {
     if (std::isnan(p.slot[i])) continue;
+    sum += p.slot[i];
     count++;
-    if (p.slot[i] < price) below++;
   }
-  return count ? static_cast<float>(below) / count : 0.5f;
+  if (!count) return 0.5f;
+  const float average = sum / count;
+  return price < average ? 0.25f : price > average ? 0.75f : 0.5f;
 }
 
-// Green for the cheapest 30%, red for the priciest 30%, and a continuous green-to-amber-to-red ramp between them.
-static lv_color_t price_color(float percentile) {
+// Green below the day's average, red above it, and amber exactly at the average.
+static lv_color_t price_color(float relation) {
   const lv_color_t green = lv_color_hex(0x31B879);
   const lv_color_t amber = lv_color_hex(0xE8B64B);
   const lv_color_t red = lv_color_hex(0xE45B62);
-  if (percentile <= 0.30f) return green;
-  if (percentile >= 0.70f) return red;
-  if (percentile <= 0.50f)
-    return lv_color_mix(green, amber, static_cast<lv_opa_t>((percentile - 0.30f) * 1275));
-  return lv_color_mix(amber, red, static_cast<lv_opa_t>((percentile - 0.50f) * 1275));
+  if (relation < 0.5f) return green;
+  if (relation > 0.5f) return red;
+  return amber;
 }
 
 static std::string number(float v, int decimals) {
@@ -421,13 +422,17 @@ class Chart {
       } else {
         grid_[i] = hairline(parent, theme::GRID);
       }
+      lv_obj_remove_flag(grid_[i], LV_OBJ_FLAG_CLICKABLE);
       price_[i] = ui::label(parent, Font::BODY, theme::SUBTLE);
+      lv_obj_remove_flag(price_[i], LV_OBJ_FLAG_CLICKABLE);
       lv_obj_set_style_text_align(price_[i], LV_TEXT_ALIGN_RIGHT, 0);
       lv_obj_add_flag(price_[i], LV_OBJ_FLAG_HIDDEN);
     }
     divider_ = hairline(parent, theme::TICK);
+    lv_obj_remove_flag(divider_, LV_OBJ_FLAG_CLICKABLE);
     for (int i = 0; i < bars_n_; i++) {
       bars_[i] = ui::block(parent, theme::TRACK);
+      lv_obj_remove_flag(bars_[i], LV_OBJ_FLAG_CLICKABLE);
       lv_obj_set_style_radius(bars_[i], line_ ? 0 : ui::px(1), 0);
       lv_obj_add_flag(bars_[i], LV_OBJ_FLAG_HIDDEN);
     }
@@ -440,16 +445,20 @@ class Chart {
       points_.resize(2 * bars_n_ + MAX_RUNS);
       feed_points_.resize(2 * bars_n_ + 1);
       mark_ = hairline(parent, theme::INK);
+      lv_obj_remove_flag(mark_, LV_OBJ_FLAG_CLICKABLE);
       const int d = std::max(5, ui::px(big ? 9 : 7));
       for (lv_obj_t **dot : {&now_dot_, &sel_dot_, &feed_dot_}) {
         *dot = hairline(parent, theme::INK);
+        lv_obj_remove_flag(*dot, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_set_size(*dot, d, d);
         lv_obj_set_style_radius(*dot, LV_RADIUS_CIRCLE, 0);
       }
     }
     for (int i = 0; i < times_n_; i++) {
       marks_[i] = hairline(parent, theme::TICK);
+      lv_obj_remove_flag(marks_[i], LV_OBJ_FLAG_CLICKABLE);
       time_[i] = ui::label(parent, Font::BODY, theme::SUBTLE);
+      lv_obj_remove_flag(time_[i], LV_OBJ_FLAG_CLICKABLE);
       lv_obj_add_flag(time_[i], LV_OBJ_FLAG_HIDDEN);
     }
   }
@@ -607,9 +616,10 @@ class Chart {
       } else if (i < now_bar) {
         ui::set_fill(bar, Tone::NORMAL, theme::TRACK);
       } else if (i == now_bar) {
-        ui::set_fill(bar, Tone::NORMAL, theme::ACCENT);
+        lv_obj_set_style_bg_color(bar, price_color(day_average_relation(p, from + i * group, v[i])), 0);
+        lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, 0);
       } else {
-        lv_obj_set_style_bg_color(bar, price_color(day_percentile(p, from + i * group, v[i])), 0);
+        lv_obj_set_style_bg_color(bar, price_color(day_average_relation(p, from + i * group, v[i])), 0);
       }
       // Under a stepped line the bars are its fill: faint, the past a little less so as its grey is light already.
       if (line_) lv_obj_set_style_bg_opa(bar, i < now_bar ? LV_OPA_50 : LV_OPA_20, 0);
@@ -703,22 +713,22 @@ class Chart {
   }
 
   // The stepped line: each bar's price a flat step across its slot, and a rise or drop to the next. The delivery
-  // price is drawn in runs of one colour, as the bars are coloured: the past grey, now the accent, then green, amber or
-  // red by its place in the range. The feed-in price, when there is one, is one thin line under it. A gap in the prices
-  // breaks the line.
+  // price is drawn in runs of one colour, as the bars are coloured: past grey, then green below its day's average or
+  // red above it. The feed-in price, when there is one, is one thin line under it. A gap in prices breaks the line.
   template <class EdgeX, class YOf>
   void draw_line(const Prices &p, int bars, const float *v, int now_bar, EdgeX edge_x, YOf y_of) {
     const auto colour = [&](int i) {
       if (i < now_bar) return 0;
-      if (i == now_bar) return 1;
-      const float at = day_percentile(p, from_ + i * group_, v[i]);
-      return 2 + static_cast<int>(at * 15.0f);
+      const float at = day_average_relation(p, from_ + i * group_, v[i]);
+      return at < 0.5f ? 2 : at > 0.5f ? 4 : 3;
     };
     const auto color_of = [](int c) {
       switch (c) {
         case 0: return ui::color(theme::SUBTLE);
-        case 1: return ui::color(theme::ACCENT);
-        default: return price_color(static_cast<float>(c - 2) / 15.0f);
+        case 2: return price_color(0.25f);
+        case 3: return price_color(0.5f);
+        case 4: return price_color(0.75f);
+        default: return ui::color(theme::ACCENT);
       }
     };
     int run = 0, k = 0, i = 0;
@@ -946,15 +956,22 @@ class PriceTile : public tessera::Tile {
     fill_ = c.options["fill"] | true;
     grid_ = grid_of(c.options["grid"] | "none");
     ahead_ = c.options["ahead"] | false;
-    head_ = ui::line_height(Font::HEADLINE);
+    head_ = ui::line_height(Font::HEADLINE) + ui::line_height(Font::BODY) + ui::px(2);
     const int gap = ui::px(6);
     const int axis = ui::line_height(Font::BODY) + ui::px(ui::large() ? 8 : 4);
     chart_on_ = c.columns >= 2 && c.rows >= 2 && height_ - head_ - gap >= axis + ui::px(36);
     value_ = ui::label(c.parent, Font::VALUE, theme::INK);
     unit_ = ui::label(c.parent, Font::BODY, theme::MUTED);
+    time_ = ui::label(c.parent, Font::BODY, theme::SUBTLE);
+    lv_obj_remove_flag(value_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(unit_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(time_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_text_align(time_, LV_TEXT_ALIGN_RIGHT, 0);
     name_text_ = c.name ? c.name : "";
     name_ = ui::label(c.parent, Font::TITLE, theme::MUTED);
+    lv_obj_remove_flag(name_, LV_OBJ_FLAG_CLICKABLE);
     feed_ = ui::label(c.parent, Font::BODY, theme::MUTED);
+    lv_obj_remove_flag(feed_, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_style_text_align(feed_, LV_TEXT_ALIGN_RIGHT, 0);
     if (chart_on_) {
       chart_.create(c.parent, 0, head_ + gap, width_, height_ - head_ - gap, TILE_BARS, 12, cents_, line_, fill_, grid_, ahead_);
@@ -968,6 +985,7 @@ class PriceTile : public tessera::Tile {
     cells_n_ = std::clamp((width_ + cell_gap_) / (cell + cell_gap_), 10, MAX_CELLS);
     for (int i = 0; i < cells_n_; i++) {
       cells_[i] = ui::block(c.parent, theme::TRACK);
+      lv_obj_remove_flag(cells_[i], LV_OBJ_FLAG_CLICKABLE);
       lv_obj_set_style_radius(cells_[i], 0, 0);
       const int a = static_cast<int>(static_cast<long>(width_) * i / cells_n_);
       const int e = static_cast<int>(static_cast<long>(width_) * (i + 1) / cells_n_) - cell_gap_;
@@ -1024,15 +1042,14 @@ class PriceTile : public tessera::Tile {
     }
     const bool ok = prices_.chosen && prices_.has_current;
     std::string name = name_text_;
-    // A tapped bar shows its own price, and its time in place of the name, for a few seconds.
-    if (sel_ >= 0 && (!ok || !chart_on_ || epoch >= sel_until_)) { sel_ = -1; chart_.select(-1); }
+    if (sel_ >= 0 && (!ok || !chart_on_)) { sel_ = -1; chart_.select(-1); }
     const Day day = day_of(prices_, epoch);
     if (ahead_) range_ahead(prices_, day, epoch);
+    std::string interval = ok ? interval_text(day, sel_ >= 0 ? chart_.bar_from(sel_) : day.slot(epoch)) : "";
     if (sel_ >= 0) {
       big = number(chart_.bar_value(sel_), decimals_);
-      name = slot_times(day);
       // With a feed-in price, the bar's own after its time: "18:00–18:15 · Feed-in 0.250", where it fits beside
-      // the price (at most as large as the headline face the row takes).
+      // the selected bar's price (the interval itself sits under that price).
       if (prices_.has_feed) {
         const std::string with = name + " \u00b7 " +
                                  tessera::fill(plugin_->text("feed_in"), "value", number(chart_.bar_feed(sel_), decimals_));
@@ -1042,7 +1059,7 @@ class PriceTile : public tessera::Tile {
     }
     const int color_slot = sel_ >= 0 ? chart_.bar_from(sel_) : day.slot(epoch);
     if (ok && color_slot >= 0 && (sel_ >= 0 || color_slot < prices_.count()))
-      lv_obj_set_style_text_color(value_, price_color(day_percentile(prices_, color_slot,
+      lv_obj_set_style_text_color(value_, price_color(day_average_relation(prices_, color_slot,
                                       sel_ >= 0 ? chart_.bar_value(sel_) : prices_.current)), 0);
     else
       ui::set_color(value_, theme::INK);
@@ -1050,7 +1067,7 @@ class PriceTile : public tessera::Tile {
     if (!ok && ui::text_width(big, Font::BODY_LARGE) > width_ * 60 / 100) name.clear();
     if (chart_on_) {
       // The name at the left and the price with its unit at the right, over the graph.
-      place_row(big, small, name, head_);
+      place_row(big, small, name, head_, interval);
       ui::set_text(feed_, "");
       chart_.update(ok ? prices_ : NO_PRICES, day, epoch);
     } else {
@@ -1061,24 +1078,23 @@ class PriceTile : public tessera::Tile {
       const int fh = ui::line_height(Font::BODY);
       const bool feed = ok && prices_.has_feed && room - fh >= ui::line_height(Font::BODY_LARGE);
       if (feed) room -= fh;
-      place_row(big, small, name, room);
+      place_row(big, small, name, room, interval);
       ui::set_text(feed_, feed ? feed_text(prices_.feed_current, width_) : "");
       lv_obj_set_size(feed_, std::max(1, width_ - 2), fh);
       lv_obj_set_pos(feed_, 0, room);
       ui::set_color(feed_, theme::MUTED);
-      // Each cell wears the colour of its place in the range, as the graph's bars do; the cells past the price are
-      // a dim tint of theirs.
+      // The cells share the current price's relation to today's average; cells past it are dimmed.
       const bool known = ok && prices_.today > 0 && prices_.hi > prices_.lo;
       const float share = known ? std::clamp((prices_.current - prices_.lo) / (prices_.hi - prices_.lo), 0.0f, 1.0f) : 0.0f;
+      const lv_color_t meter_color = price_color(day_average_relation(prices_, day.slot(epoch), prices_.current));
       const int lit = static_cast<int>(std::lround(share * cells_n_));
       for (int i = 0; i < cells_n_; i++) {
-        const float at = (i + 0.5f) / cells_n_;
         if (!known) {
           ui::set_fill(cells_[i], Tone::NORMAL, theme::TRACK);
           lv_obj_set_style_bg_opa(cells_[i], LV_OPA_COVER, 0);
           continue;
         }
-        lv_obj_set_style_bg_color(cells_[i], price_color(at), 0);
+        lv_obj_set_style_bg_color(cells_[i], meter_color, 0);
         lv_obj_set_style_bg_opa(cells_[i], i < lit ? LV_OPA_COVER : LV_OPA_30, 0);
       }
     }
@@ -1098,7 +1114,6 @@ class PriceTile : public tessera::Tile {
       // A tap on a bar shows it; a tap on the one shown, or beside the bars, opens the card.
       if (hit >= 0 && hit != sel_) {
         sel_ = hit;
-        sel_until_ = last_epoch_ + 8;
         chart_.select(hit);
         on_tick(last_epoch_);
         return;
@@ -1147,15 +1162,18 @@ class PriceTile : public tessera::Tile {
 
   // The name at the left and the price with its unit at the right in one row, `room` high; without a name the price
   // has the whole row.
-  void place_row(const std::string &big, const std::string &small, const std::string &name, int room) {
+  void place_row(const std::string &big, const std::string &small, const std::string &name, int room,
+                 const std::string &interval) {
     const std::string words = small.empty() ? big : big + " " + small;
     // The name keeps the tile-label face as the meter bar writes it; the price takes the largest face that leaves the
     // name its room, and only a name that fits no face steps down.
     const int apart = ui::px(8), most = name.empty() ? width_ - 2 : width_ * 60 / 100;
     Font face = Font::BODY, nface = Font::BODY;
+    const int time_h = ui::line_height(Font::BODY), time_gap = ui::px(1);
     bool settled = false;
     for (Font f : {Font::VALUE, Font::HEADLINE, Font::TITLE, Font::BODY_LARGE, Font::BODY}) {
-      if (ui::text_width(words, f) > most || ui::line_height(f) > room) continue;
+      const int block_h = ui::line_height(f) + (interval.empty() ? 0 : time_gap + time_h);
+      if (ui::text_width(words, f) > most || block_h > room) continue;
       if (name.empty() || ui::text_width(name, Font::TITLE) <= width_ - ui::text_width(words, f) - apart) {
         face = f;
         settled = true;
@@ -1166,6 +1184,9 @@ class PriceTile : public tessera::Tile {
       for (Font f : {Font::VALUE, Font::HEADLINE, Font::TITLE, Font::BODY_LARGE, Font::BODY})
         if (ui::text_width(words, f) <= most && ui::line_height(f) <= room) { face = f; break; }
     const int vh = ui::line_height(face);
+    const bool show_interval = !interval.empty() && ui::text_width(interval, Font::BODY) <= most &&
+                               vh + time_gap + time_h <= room;
+    const int block_h = vh + (show_interval ? time_gap + time_h : 0);
     const int vw = std::min(most, ui::text_width(words, face));
     for (Font f : {Font::TITLE, Font::BODY_LARGE, Font::BODY})
       if (ui::text_width(name, f) <= width_ - vw - apart) { nface = f; break; }
@@ -1173,20 +1194,25 @@ class PriceTile : public tessera::Tile {
     ui::set_text(value_, words);
     ui::set_text(unit_, "");
     lv_obj_set_size(value_, std::max(1, vw + 2), vh);
-    lv_obj_set_pos(value_, width_ - vw - 2, (room - vh) / 2);
+    const int top = (room - block_h) / 2;
+    lv_obj_set_pos(value_, width_ - vw - 2, top);
+    ui::set_text(time_, show_interval ? interval : "");
+    lv_obj_set_size(time_, std::max(1, ui::text_width(interval, Font::BODY) + 2), time_h);
+    lv_obj_set_pos(time_, width_ - ui::text_width(interval, Font::BODY) - 2, top + vh + time_gap);
+    ui::set_color(time_, theme::SUBTLE);
     ui::set_font(name_, nface);
     ui::set_text(name_, name);
     const int nh = ui::line_height(nface);
     lv_obj_set_size(name_, std::max(1, width_ - vw - ui::px(8)), nh);
-    lv_obj_set_pos(name_, 0, (room - vh) / 2 + (vh - nh) * 8 / 10);
+    lv_obj_set_pos(name_, 0, top + (vh - nh) * 8 / 10);
     ui::set_color(name_, theme::MUTED);
   }
 
-  // "18:00–18:15" of the shown bar.
-  std::string slot_times(const Day &day) const {
-    if (!day.known()) return "";
-    const std::string a = tessera::clock_text(day.at(chart_.bar_from(sel_)));
-    const std::string b = tessera::clock_text(day.at(chart_.bar_to(sel_, prices_.count())));
+  // "15:00–15:15" for the current interval or selected bar.
+  std::string interval_text(const Day &day, int slot) const {
+    if (!day.known() || slot < 0 || slot >= prices_.count()) return "";
+    const std::string a = tessera::clock_text(day.at(slot));
+    const std::string b = tessera::clock_text(day.at(slot + 1));
     return a + (ui::covers("\u2013", Font::BODY) ? "\u2013" : "-") + b;
   }
 
@@ -1201,7 +1227,6 @@ class PriceTile : public tessera::Tile {
   Shared *shared_;
   BarSource *bar_;
   int sel_ = -1;
-  uint32_t sel_until_ = 0;
   std::string entity_, name_text_;
   Prices prices_;
   Chart chart_;
@@ -1213,7 +1238,7 @@ class PriceTile : public tessera::Tile {
   uint32_t market_generation_ = 0;
   char market_area_[4] = "", market_currency_[8] = "";
   uint32_t last_epoch_ = 0;
-  lv_obj_t *value_{}, *unit_{}, *name_{}, *feed_{}, *cells_[MAX_CELLS]{};
+  lv_obj_t *value_{}, *unit_{}, *time_{}, *name_{}, *feed_{}, *cells_[MAX_CELLS]{};
 };
 
 // ---- The card: the price now, the day's lowest, highest and average, and the graph of today and tomorrow ----
@@ -1294,8 +1319,8 @@ class PriceCard : public tessera::Card {
     const bool graph = ok && prices_.today > 0;
     const Day day = day_of(prices_, epoch);
     const int gap = ui::px(8);
-    // A tapped bar shows its own price and time slot for a few seconds, then the card is as it was.
-    if (sel_ >= 0 && (!ok || prices_.today == 0 || epoch >= sel_until_)) { sel_ = -1; chart_.select(-1); }
+    // A tapped bar stays selected until another bar is tapped or the card is closed.
+    if (sel_ >= 0 && (!ok || prices_.today == 0)) { sel_ = -1; chart_.select(-1); }
     std::string big = ok                  ? number(prices_.current, decimals_)
                       : !prices_.chosen   ? plugin_->text("choose")
                       : tariff_.error     ? plugin_->text("formula_error")
@@ -1311,7 +1336,7 @@ class PriceCard : public tessera::Card {
     ui::set_text(value_, big);
     const int color_slot = graph && sel_ >= 0 ? chart_.bar_from(sel_) : day.slot(epoch);
     if (ok && color_slot >= 0 && color_slot < prices_.count())
-      lv_obj_set_style_text_color(value_, price_color(day_percentile(prices_, color_slot,
+      lv_obj_set_style_text_color(value_, price_color(day_average_relation(prices_, color_slot,
                                       graph && sel_ >= 0 ? chart_.bar_value(sel_) : prices_.current)), 0);
     else
       ui::set_color(value_, theme::INK);
@@ -1368,7 +1393,6 @@ class PriceCard : public tessera::Card {
     const tessera::Point p = tessera::tap_point();
     const int hit = p.x >= 0 && prices_.today > 0 ? chart_.bar_at(p.x, p.y) : -1;
     sel_ = hit >= 0 && hit != sel_ ? hit : -1;
-    sel_until_ = last_epoch_ + 8;
     chart_.select(sel_);
     on_tick(last_epoch_);
   }
@@ -1443,7 +1467,6 @@ class PriceCard : public tessera::Card {
   Tariff tariff_;
   bool cents_ = false, ahead_ = false;
   int sel_ = -1;
-  uint32_t sel_until_ = 0;
   int decimals_ = 3, width_ = 0, height_ = 0, head_ = 0, row_h_ = 0, left_w_ = 0, right_x_ = 0;
   uint32_t last_epoch_ = 0;
   lv_obj_t *value_{}, *unit_{}, *feed_{}, *avg_cap_{}, *avg_{}, *extreme_[2]{}, *today_{}, *tomorrow_{}, *surface_{};
