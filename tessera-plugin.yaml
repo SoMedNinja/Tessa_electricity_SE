@@ -1,0 +1,206 @@
+# Tessa electricity SE: the price of power now as a tile, and the graph of today and tomorrow on bigger tiles and on a
+# card, with the person's own tariff on top: a formula in p for delivery and, optionally, one for feed-in. It reads the
+# sensor of Nord Pool (HACS `nordpool`), ENTSO-e (`entsoe`), GE-Spot (`ge_spot`) or EPEX Spot (`epex_spot`) from Home
+# Assistant. The price now
+# of a tile can also stand in the top bar.
+id: tessa_electricity_se
+version: 0.1.0
+api: "0.12"
+icon: flash
+maintainer: SoMedNinja
+license: MIT
+stage: beta
+topics: [energy]
+requires:
+  esphome: 2026.6.2
+boards: any
+flash_kb: 16
+
+# The price now of a tile on the screen, with that tile's sensor, formula and unit.
+bar_items:
+  - { id: price, label: bar_price, icon: flash, example: bar_example }
+
+tiles:
+# One tile per integration: has_attributes keeps the inspector's list to the sensors that belong to it.
+  - id: nordpool
+    name: tile_name_nordpool
+    icon: flash
+    sizes: { min: 1x1, max: 9x9, full: true }
+    memory: 32000
+    domains: [sensor]
+    attributes: [unit_of_measurement]
+    has_attributes: [raw_today]
+    fields:
+      today: { path: "raw_today[*].value", as: numbers }
+      tomorrow: { path: "raw_tomorrow[*].value", as: numbers }
+    example: tile_example
+    preview: { title: "{name}", value: "{state} {unit_of_measurement}" }
+    options:
+      - id: unit
+        kind: choice
+        default: eur
+        label: unit
+        hint: unit_hint
+        choices:
+          - { value: eur, label: unit_eur }
+          - { value: cents, label: unit_cents }
+      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
+      - { id: delivery, kind: text, default: "", label: delivery, hint: delivery_hint }
+      - { id: feed_in, kind: text, default: "", label: feed_in, hint: feed_in_hint }
+      - id: graph
+        kind: choice
+        default: bars
+        label: graph
+        hint: graph_hint
+        choices:
+          - { value: bars, label: graph_bars }
+          - { value: line, label: graph_line }
+      - { id: fill, kind: toggle, default: true, label: fill, hint: fill_hint }
+      - id: grid
+        kind: choice
+        default: none
+        label: grid
+        hint: grid_hint
+        choices:
+          - { value: none, label: grid_none }
+          - { value: solid, label: grid_solid }
+          - { value: dotted, label: grid_dotted }
+      - { id: ahead, kind: toggle, default: false, label: ahead, hint: ahead_hint }
+  - id: entsoe
+    name: tile_name_entsoe
+    icon: flash
+    sizes: { min: 1x1, max: 9x9, full: true }
+    memory: 32000
+    domains: [sensor]
+    attributes: [unit_of_measurement]
+    has_attributes: [prices_today]
+    fields:
+      today: { path: "prices_today[*].price", as: numbers }
+      tomorrow: { path: "prices_tomorrow[*].price", as: numbers }
+    example: tile_example
+    preview: { title: "{name}", value: "{state} {unit_of_measurement}" }
+    options:
+      - id: unit
+        kind: choice
+        default: eur
+        label: unit
+        hint: unit_hint
+        choices:
+          - { value: eur, label: unit_eur }
+          - { value: cents, label: unit_cents }
+      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
+      - { id: delivery, kind: text, default: "", label: delivery, hint: delivery_hint }
+      - { id: feed_in, kind: text, default: "", label: feed_in, hint: feed_in_hint }
+      - id: graph
+        kind: choice
+        default: bars
+        label: graph
+        hint: graph_hint
+        choices:
+          - { value: bars, label: graph_bars }
+          - { value: line, label: graph_line }
+      - { id: fill, kind: toggle, default: true, label: fill, hint: fill_hint }
+      - id: grid
+        kind: choice
+        default: none
+        label: grid
+        hint: grid_hint
+        choices:
+          - { value: none, label: grid_none }
+          - { value: solid, label: grid_solid }
+          - { value: dotted, label: grid_dotted }
+      - { id: ahead, kind: toggle, default: false, label: ahead, hint: ahead_hint }
+  - id: gespot
+    name: tile_name_gespot
+    icon: flash
+    sizes: { min: 1x1, max: 9x9, full: true }
+    memory: 32000
+    domains: [sensor]
+    attributes: [unit_of_measurement]
+    has_attributes: [today_interval_prices]
+    fields:
+      today: { path: "today_interval_prices[*].value", as: numbers }
+      tomorrow: { path: "tomorrow_interval_prices[*].value", as: numbers }
+    example: tile_example
+    preview: { title: "{name}", value: "{state} {unit_of_measurement}" }
+    options:
+      - id: unit
+        kind: choice
+        default: eur
+        label: unit
+        hint: unit_hint
+        choices:
+          - { value: eur, label: unit_eur }
+          - { value: cents, label: unit_cents }
+      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
+      - { id: delivery, kind: text, default: "", label: delivery, hint: delivery_hint }
+      - { id: feed_in, kind: text, default: "", label: feed_in, hint: feed_in_hint }
+      - id: graph
+        kind: choice
+        default: bars
+        label: graph
+        hint: graph_hint
+        choices:
+          - { value: bars, label: graph_bars }
+          - { value: line, label: graph_line }
+      - { id: fill, kind: toggle, default: true, label: fill, hint: fill_hint }
+      - id: grid
+        kind: choice
+        default: none
+        label: grid
+        hint: grid_hint
+        choices:
+          - { value: none, label: grid_none }
+          - { value: solid, label: grid_solid }
+          - { value: dotted, label: grid_dotted }
+      - { id: ahead, kind: toggle, default: false, label: ahead, hint: ahead_hint }
+  - id: epex
+    name: tile_name_epex
+    icon: flash
+    sizes: { min: 1x1, max: 9x9, full: true }
+    memory: 32000
+    domains: [sensor]
+    attributes: [unit_of_measurement]
+    has_attributes: [data]
+    # One list of yesterday, today and tomorrow: the screen cuts the days out of it by the start of the first two slots.
+    fields:
+      prices: { path: "data[*].price_per_kwh", as: numbers }
+      first: { path: "data[0].start_time", as: epoch }
+      second: { path: "data[1].start_time", as: epoch }
+    example: tile_example
+    preview: { title: "{name}", value: "{state} {unit_of_measurement}" }
+    options:
+      - id: unit
+        kind: choice
+        default: eur
+        label: unit
+        hint: unit_hint
+        choices:
+          - { value: eur, label: unit_eur }
+          - { value: cents, label: unit_cents }
+      - { id: fixed, kind: number, min: 0, max: 4, step: 1, default: 3, label: decimals, hint: decimals_hint }
+      - { id: delivery, kind: text, default: "", label: delivery, hint: delivery_hint }
+      - { id: feed_in, kind: text, default: "", label: feed_in, hint: feed_in_hint }
+      - id: graph
+        kind: choice
+        default: bars
+        label: graph
+        hint: graph_hint
+        choices:
+          - { value: bars, label: graph_bars }
+          - { value: line, label: graph_line }
+      - { id: fill, kind: toggle, default: true, label: fill, hint: fill_hint }
+      - id: grid
+        kind: choice
+        default: none
+        label: grid
+        hint: grid_hint
+        choices:
+          - { value: none, label: grid_none }
+          - { value: solid, label: grid_solid }
+          - { value: dotted, label: grid_dotted }
+      - { id: ahead, kind: toggle, default: false, label: ahead, hint: ahead_hint }
+
+cards:
+  - { id: prices, name: card_name, wide: true }
+
