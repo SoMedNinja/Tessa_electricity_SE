@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+- Use free-text tax and cost fields with precision bounded by the decimal setting.
+- Make the decimal setting control dashboard display precision, including cents mode.
+
 ## 0.1.4
 
 - Use only tile option kinds accepted by Tessera's installed validator; sales display uses the selected sensor with its own additional cost.
