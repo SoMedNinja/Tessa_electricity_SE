@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Use only tile option kinds accepted by Tessera's installed validator; sales display uses the selected sensor with its own additional cost.
+
 ## 0.1.3
 
 - Keep the sales entity option within the fields accepted by Tessera's tile option validator.
