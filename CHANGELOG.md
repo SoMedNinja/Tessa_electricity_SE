@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6
+
+- Fetch built-in Nord Pool interval prices for today and tomorrow through Home Assistant's Nord Pool action.
+- Replace tariff number widgets with bounded free-text values and tie input precision to displayed decimals.
+
 ## 0.1.5
 
 - Use free-text tax and cost fields with precision bounded by the decimal setting.
